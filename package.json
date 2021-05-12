@@ -11,10 +11,12 @@
     "apollo-cache-inmemory": "^1.6.6",
     "apollo-client": "^2.6.10",
     "apollo-link-http": "^1.5.17",
+    "apollo-link-ws": "^1.0.20",
     "express": "^4.17.1",
     "graphql": "^15.5.0",
     "graphql-tag": "^2.12.4",
     "morgan": "^1.9.1",
+    "subscriptions-transport-ws": "^0.9.18",
     "vue-apollo": "^3.0.7"
   },
   "devDependencies": {

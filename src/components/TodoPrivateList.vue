@@ -1,14 +1,13 @@
 <template>
   <div>
+    <div v-if="error">{{ error }}</div>
+    <div v-if="$apollo.queries.todos.loading">Loading...</div>
     <div class="todoListwrapper">
-      <TodoItem 
-        v-bind:todos="filteredTodos" 
-        v-bind:type="type" 
-      />
+      <TodoItem v-bind:todos="filteredTodos" v-bind:type="type" />
     </div>
-    <TodoFilters 
-      v-bind:remainingTodos="remainingTodos" 
-      v-bind:filterResults="filterResults" 
+    <TodoFilters
+      v-bind:remainingTodos="remainingTodos"
+      v-bind:filterResults="filterResults"
       v-bind:filterType="filterType"
       v-bind:type="type"
       v-bind:clearCompleted="clearCompleted"
@@ -19,50 +18,58 @@
 <script>
 import TodoItem from "../components/TodoItem";
 import TodoFilters from "../components/TodoFilters";
+import gql from "graphql-tag";
+
+export const GET_MY_TODOS = gql`
+  query getMyTodos {
+    todos(
+      where: { is_public: { _eq: false } }
+      order_by: { created_at: desc }
+    ) {
+      id
+      title
+      created_at
+      is_completed
+    }
+  }
+`;
+
 export default {
   components: {
-    TodoItem, TodoFilters
+    TodoItem,
+    TodoFilters
   },
   data() {
     return {
       type: "private",
       filterType: "all",
-      todos: [
-        {
-          id: "1",
-          title: "This is private todo 1",
-          is_completed: true,
-          is_public: false
-        },
-        {
-          id: "2",
-          title: "This is private todo 2",
-          is_completed: false,
-          is_public: false
-        }
-      ],
-    }
+      todos: [],
+      error: null
+    };
   },
   computed: {
     remainingTodos: function() {
-      const activeTodos = this.todos !== undefined ? this.todos.filter((todo) => todo.is_completed !== true) : []
-      return activeTodos.length
+      const activeTodos =
+        this.todos !== undefined
+          ? this.todos.filter(todo => todo.is_completed !== true)
+          : [];
+      return activeTodos.length;
     },
     filteredTodos: function() {
-      if (this.filterType === 'all') {
-        return this.todos
-      } else if(this.filterType === 'active') {
-        return this.todos.filter((todo) => todo.is_completed !== true);
-      } else if (this.filterType === 'completed') {
-        return this.todos.filter((todo) => todo.is_completed === true);
+      if (this.filterType === "all") {
+        return this.todos;
+      } else if (this.filterType === "active") {
+        return this.todos.filter(todo => todo.is_completed !== true);
+      } else if (this.filterType === "completed") {
+        return this.todos.filter(todo => todo.is_completed === true);
       }
     }
   },
   methods: {
     filterResults: function(type) {
-      if(type === 'active') {
+      if (type === "active") {
         this.filterType = "active";
-      } else if(type === 'completed') {
+      } else if (type === "completed") {
         this.filterType = "completed";
       } else {
         this.filterType = "all";
@@ -71,9 +78,44 @@ export default {
     clearCompleted: function() {
       const isOk = window.confirm("Are you sure?");
       if (isOk) {
+         const CLEAR_COMPLETED = gql`
+     mutation clearCompleted {
+       delete_todos(where: {is_completed: {_eq: true}, is_public: {_eq: false}}) {
+         affected_rows
+       }
+     }
+   `;
+   this.$apollo
+     .mutate({
+       mutation: CLEAR_COMPLETED,
+       update: (cache, { data: { delete_todos } }) => {
+         if (delete_todos.affected_rows) {
+           const data = cache.readQuery({
+             query: GET_MY_TODOS,
+           });
+           data.todos = data.todos.filter((todo) => todo.is_completed !== true);
+           cache.writeQuery({
+             query: GET_MY_TODOS,
+             data
+           });
+         }
+        },
+     })
+     .catch(error => {
+       console.error(error);
+     });
         // Remove all the todos that are completed
       }
     }
   },
-}
+  apollo: {
+    todos: {
+      // graphql query
+      query: GET_MY_TODOS,
+      error(error) {
+        this.error = JSON.stringify(error.message);
+      }
+    }
+  }
+};
 </script>
